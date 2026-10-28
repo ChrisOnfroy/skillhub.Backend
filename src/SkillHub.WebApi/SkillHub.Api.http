@@ -1,0 +1,160 @@
+@HostAddress = http://localhost:5246
+@EmployeeEmail = andres.mejia@correo.com
+@EmployeePassword = Instructor2026*
+
+### 1. Login as Employee/Instructor
+# @name loginEmployee
+POST {{HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{EmployeeEmail}}",
+  "password": "{{EmployeePassword}}"
+}
+
+### Store Employee Token
+@employeeToken = {{loginEmployee.response.body.token}}
+
+### 2. Create Workshop (Employee Only)
+# @name createWorkshop
+POST {{HostAddress}}/api/v1/workshops
+Content-Type: application/json
+Authorization: Bearer {{employeeToken}}
+
+{
+  "code": "FOT-001",
+  "title": "Night and Urban Photography",
+  "description": "Hands-on in-person workshop focusing on low-light photography techniques.",
+  "instructorEmail": "andres.mejia@correo.com",
+  "startAt": "2026-11-15T18:00:00Z",
+  "endAt": "2026-11-15T21:00:00Z",
+  "maxCapacity": 15
+}
+
+### 3. Public Workshop Catalog (Anonymous)
+GET {{HostAddress}}/api/v1/workshops
+Accept: application/json
+
+### 4. Workshop Details by ID
+@workshopId = {{createWorkshop.response.body.id}}
+GET {{HostAddress}}/api/v1/workshops/{{workshopId}}
+Accept: application/json
+
+### 5. Register new Participant
+# @name registerParticipant
+POST {{HostAddress}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "password": "Password123*",
+  "identificationType": 1,
+  "identificationNumber": "1020304050",
+  "phoneCountryCode": "+1",
+  "phoneNumber": "5551234567",
+  "street": "123 Main St",
+  "city": "Springfield",
+  "country": "United States"
+}
+
+### 6. Login as Participant
+# @name loginParticipant
+POST {{HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "password": "Password123*"
+}
+
+### Store Participant Token
+@participantToken = {{loginParticipant.response.body.token}}
+
+### 7. Request Password Reset Code (By Identification Number)
+# @name forgotPassword
+POST {{HostAddress}}/api/v1/auth/forgot-password
+Content-Type: application/json
+
+{
+  "identificationNumber": "1041691420"
+}
+
+### 8. Verify 6-digit Reset Code
+# @name verifyResetCode
+POST {{HostAddress}}/api/v1/auth/verify-reset-code
+Content-Type: application/json
+
+{
+  "identificationNumber": "1041691420",
+  "code": "PASTE_6_DIGIT_CODE_RECEIVED_BY_EMAIL"
+}
+
+### Store Verified Reset Token
+@verifiedResetToken = {{verifyResetCode.response.body.resetToken}}
+@verifiedEmail = {{verifyResetCode.response.body.email}}
+
+### 9. Reset Password (with verified token from step 8)
+POST {{HostAddress}}/api/v1/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "{{verifiedEmail}}",
+  "token": "{{verifiedResetToken}}",
+  "newPassword": "NewSecurePassword123*",
+  "confirmPassword": "NewSecurePassword123*"
+}
+
+### 9B. Alternatively: Reset Password directly with Code and Document
+POST {{HostAddress}}/api/v1/auth/reset-password
+Content-Type: application/json
+
+{
+  "identificationNumber": "1001001001",
+  "code": "PASTE_6_DIGIT_CODE_RECEIVED_BY_EMAIL",
+  "newPassword": "NewSecurePassword123*",
+  "confirmPassword": "NewSecurePassword123*"
+}
+
+### 10. Change Password (Authenticated User)
+POST {{HostAddress}}/api/v1/auth/change-password
+Content-Type: application/json
+Authorization: Bearer {{participantToken}}
+
+{
+  "currentPassword": "Password123*",
+  "newPassword": "AnotherPassword456*",
+  "confirmPassword": "AnotherPassword456*"
+}
+
+### 10. Enroll in Workshop (Authenticated Participant)
+# @name enroll
+POST {{HostAddress}}/api/v1/enrollments
+Content-Type: application/json
+Authorization: Bearer {{participantToken}}
+
+{
+  "workshopId": "{{workshopId}}"
+}
+
+### 11. List My Enrollments (Participant)
+GET {{HostAddress}}/api/v1/enrollments/mine
+Authorization: Bearer {{participantToken}}
+
+### 12. List Workshop Enrollments (Employee Only)
+GET {{HostAddress}}/api/v1/workshops/{{workshopId}}/enrollments
+Authorization: Bearer {{employeeToken}}
+
+### 13. Download PDF Enrollment Certificate
+@enrollmentId = {{enroll.response.body.id}}
+GET {{HostAddress}}/api/v1/enrollments/{{enrollmentId}}/certificate
+Authorization: Bearer {{participantToken}}
+
+### 14. Cancel Enrollment (Participant or Employee)
+PATCH {{HostAddress}}/api/v1/enrollments/{{enrollmentId}}/cancel
+Authorization: Bearer {{participantToken}}
+
+### 15. Report: Top Enrolled Workshops (Employee Only)
+GET {{HostAddress}}/api/v1/reports/top-workshops?top=5
+Authorization: Bearer {{employeeToken}}
